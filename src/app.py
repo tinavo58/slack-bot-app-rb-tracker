@@ -13,23 +13,7 @@ PROJECT = os.getenv('RB_TRACKER_P')
 
 
 # ------------------------------------------------------------
-def getTasks(client, params):
-    return client.tasks.get_tasks(
-        params=params
-    )
-
-
-def searchTask(task: str):
-    tasksList = [x for x in retrieveTasks()]
-    output = []
-    for each in tasksList:
-        if task.lower() in each.get('name').lower():
-            output.append(each)
-
-    return output
-
-
-def retrieveTasks():
+def getTasks():
     params = {"project": PROJECT}
     params['completed_since'] = datetime.strftime(datetime.now() - timedelta(days=14), '%Y-%m-%d')
     params['opt_fields'] = {
@@ -42,15 +26,25 @@ def retrieveTasks():
     }
     client = Client.access_token(PAT)
 
-    return getTasks(client, params)
+    return client.tasks.get_tasks(
+        params=params
+    )
+
+
+def searchTask(task: str):
+    tasksList = [x for x in getTasks()]
+    output = []
+    for each in tasksList:
+        if task.lower() in each.get('name').lower():
+            output.append(each)
+
+    return output
 
 
 def getDisplayValue(field, fieldsList):
     for each in fieldsList:
         if each['name'].lower() == field.lower():
             return each['display_value']
-
-    return "N/A"
 
 
 def convertDateTime(dateTimeString):
@@ -59,7 +53,7 @@ def convertDateTime(dateTimeString):
     return dateTimeDetails.strftime("%-d/%m/%Y")
 
 
-def extractInfo(tasksList):
+def extractRequiredInfo(tasksList):
     output = {}
 
     for each in tasksList:
@@ -85,7 +79,7 @@ def main():
     searchList = searchTask(search)
 
     if len(searchList) > 0:
-        pprint(extractInfo(searchList))
+        pprint(extractRequiredInfo(searchList))
     else: print("No such request...")
 
 
