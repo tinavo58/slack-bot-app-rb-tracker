@@ -1,4 +1,4 @@
-asana==3.2.2
-python-dotenv==1.0.0
-slack-bolt==1.18.0
-slack-sdk==3.23.0
+asana==5.0.0
+python-dotenv
+slack-bolt
+slack-sdk
