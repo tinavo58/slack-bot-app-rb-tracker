@@ -109,6 +109,12 @@ def extractInfo(item):
 
     return clientName, status, assignee, dueDate, completeDate
 
+def fullSearch(searchString: str, task_api_instance):
+    res = searchTasks(searchString, task_api_instance)
+    if len(res) > 0:
+        return [extractInfo(retrieveSingeTask(task_api_instance, gid)) for gid in res]
+
+    return None
 
 def extractRequiredInfo(tasksList):
     output = {}
@@ -147,53 +153,79 @@ def main():
 
 # ------------------------------------------------------------
 # slack
-name, status, assignee, dueDate = ('Central Coast Sports College', 'Done', 'Dinh Tran Hoang', '2/11/2023')
-project_template = {
-    "type": "rich_text",
-    "elements": [
-        {
-            "type": "rich_text_quote",
-            "elements": [
-                {
-                    "type": "text",
-                    "text": "%s" % name,
-                    "style": {
-                        "bold": True
-                    }
-                },
-                {
-                    "type": "text",
-                    "text": "\n\tStatus: %s" % status
-                },
-                {
-                    "type": "text",
-                    "text": "\n\tAssignee: %s" % assignee
-                },
-                {
-                    "type": "text",
-                    "text": "\n\tDue date: %s" % dueDate
-                }
-            ]
-        }
-    ]
-}
-blocks = []
-blocks.append(project_template)
-
-
 @app.message(re.compile(r'check(.*)'))
 def check_RB_request(client, message):
     message_text, ts, channel_id = message['text'], message['ts'], message['channel']
+    task_api_instance = triggerAsanaInstance()
 
-    search = message_text
+    # text include search text
+    if len(message_text.split()) > 1:
+        search = str(message_text.split(maxsplit=1)[-1])
+        tasks = fullSearch(search, task_api_instance)
 
-    if len(search.split()) > 1:
-        search = search.split(maxsplit=1)[1:]
-        client.chat_postMessage(
+        if tasks is None:
+            client.chat_postMessage(
             channel=channel_id,
             thread_ts=ts,
-            blocks=blocks
+            blocks= [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": ":face_with_monocle: Unable to find such request. Request might not have been submitted (you can you submite via this <https://form.asana.com/?k=ItwSQjHfy5lxDIcIMZFv7Q&d=149498577369773|form>) or it was completed more than 2 weeks ago."
+                    }
+                }
+            ],
+            text=":face_with_monocle: Unable to find such request. Request might not have been submitted (you can you submite via this <https://form.asana.com/?k=ItwSQjHfy5lxDIcIMZFv7Q&d=149498577369773|form>) or it was completed more than 2 weeks ago."
         )
+
+        else:
+            blocks = []
+
+            for name, status, assignee, dueDate, completeDate in tasks:
+                task = {
+                    "type": "rich_text",
+                    "elements": [
+                        {
+                            "type": "rich_text_quote",
+                            "elements": [
+                                {
+                                    "type": "text",
+                                    "text": name,
+                                    "style": {
+                                        "bold": True
+                                    }
+                                },
+                                {
+                                    "type": "text",
+                                    "text": "\n\tStatus: " + status
+                                },
+                                {
+                                    "type": "text",
+                                    "text": "\n\tAssignee: " + assignee
+                                },
+                                {
+                                    "type": "text",
+                                    "text": "\n\tDue date: " + dueDate
+                                },
+                                {
+                                    "type": "text",
+                                    "text": "\n\tCompleted date: " + completeDate
+                                }
+                            ]
+                        }
+                    ]
+                }
+                blocks.append(task)
+
+            client.chat_postMessage(
+                channel=channel_id,
+                thread_ts=ts,
+                blocks=blocks,
+                text="listing results"
+            )
+
+    # if only "check" sent
     else:
         client.chat_postMessage(
             thread_ts=ts,
@@ -221,7 +253,8 @@ def check_RB_request(client, message):
                         }
                     ]
                 }
-            ]
+            ],
+            text="Please include client name e.g. check client_name"
         )
 
 
