@@ -1,4 +1,4 @@
 asana==5.0.0
-python-dotenv
-slack-bolt
-slack-sdk
+python-dotenv==1.0.0
+slack-bolt==1.18.1
+slack-sdk==3.26.1
