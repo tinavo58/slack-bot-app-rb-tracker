@@ -3,11 +3,8 @@ import os
 import re
 import asana
 
-from pprint import pprint
-
 from dotenv import load_dotenv; load_dotenv()
 from datetime import datetime, timedelta
-from asana.rest import ApiException
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk.errors import SlackApiError
@@ -26,6 +23,14 @@ def calculateDate(days=14):
     return datetime.strftime(datetime.now() - timedelta(days=days), '%Y-%m-%d')
 
 
+def triggerAsanaInstance():
+    configuration = asana.Configuration()
+    configuration.access_token = os.getenv('ASANA_PAT')
+    api_client = asana.ApiClient(configuration)
+
+    return  asana.TasksApi(api_client)
+
+
 def retrieveTasks(tasks_api_instance, opt_fields=None):
     opts = {
         'project': os.getenv('RB_TRACKER_P'),
@@ -36,14 +41,6 @@ def retrieveTasks(tasks_api_instance, opt_fields=None):
         opts.update(opt_fields)
 
     return tasks_api_instance.get_tasks(opts)
-
-
-def triggerAsanaInstance():
-    configuration = asana.Configuration()
-    configuration.access_token = os.getenv('ASANA_PAT')
-    api_client = asana.ApiClient(configuration)
-
-    return  asana.TasksApi(api_client)
 
 
 def retrieveSingeTask(tasks_api_instance, gid):
@@ -72,7 +69,7 @@ def getDisplayValue(field, fieldsList):
         if each['name'].lower() == field.lower():
             value = each['display_value']
             if value is None:
-                return "TBC"
+                return "N/A"
             return value
 
 
@@ -91,7 +88,7 @@ def extractInfo(item):
 
     # assignee
     if item['assignee'] is None:
-        assignee = "TBC"
+        assignee = "N/A"
     else: assignee = item['assignee']['name']
 
     # status
@@ -99,15 +96,15 @@ def extractInfo(item):
 
     # due date
     if item['due_on'] is None:
-        dueDate = "TBC"
+        dueDate = "N/A"
     else: dueDate = convertDateTime(item['due_on'], flag=True)
 
     # completed date
-    if item['completed_at'] is None:
-        completeDate = "In progress"
-    else: completeDate = convertDateTime(item['completed_at'])
+    completeDate = item['completed_at']
+    if completeDate is not None: completeDate = convertDateTime(item['completed_at'])
 
     return clientName, status, assignee, dueDate, completeDate
+
 
 def fullSearch(searchString: str, task_api_instance):
     res = searchTasks(searchString, task_api_instance)
@@ -115,6 +112,7 @@ def fullSearch(searchString: str, task_api_instance):
         return [extractInfo(retrieveSingeTask(task_api_instance, gid)) for gid in res]
 
     return None
+
 
 def extractRequiredInfo(tasksList):
     output = {}
@@ -150,11 +148,10 @@ def main():
     print(output)
 
 
-
 # ------------------------------------------------------------
 # slack
 @app.message(re.compile(r'check(.*)'))
-def check_RB_request(client, message):
+def check_RB_request(client, message, logger):
     message_text, ts, channel_id = message['text'], message['ts'], message['channel']
     task_api_instance = triggerAsanaInstance()
 
@@ -164,100 +161,166 @@ def check_RB_request(client, message):
         tasks = fullSearch(search, task_api_instance)
 
         if tasks is None:
-            client.chat_postMessage(
-            channel=channel_id,
-            thread_ts=ts,
-            blocks= [
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": ":face_with_monocle: Unable to find such request. Request might not have been submitted (you can you submite via this <https://form.asana.com/?k=ItwSQjHfy5lxDIcIMZFv7Q&d=149498577369773|form>) or it was completed more than 2 weeks ago."
+            try:
+                client.chat_postMessage(
+                channel=channel_id,
+                thread_ts=ts,
+                blocks= [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "plain_text",
+                            "text": ":face_with_monocle: Unable to find such request. Request might not have been submitted or maybe it was completed more than 2 weeks ago.",
+                            "emoji": True
+                        }
+                    },
+                    {
+                        "type": "actions",
+                        "elements": [
+                            {
+                                "type": "button",
+                                "text": {
+                                    "type": "plain_text",
+                                    "text": "Submit new request",
+                                    "emoji": True
+                                },
+                                "value": "click_me_123",
+                                "action_id": "/Xhsi",
+                                "url": "https://form.asana.com/?k=ItwSQjHfy5lxDIcIMZFv7Q&d=149498577369773t"
+                            }
+                        ]
                     }
-                }
-            ],
-            text=":face_with_monocle: Unable to find such request. Request might not have been submitted (you can you submite via this <https://form.asana.com/?k=ItwSQjHfy5lxDIcIMZFv7Q&d=149498577369773|form>) or it was completed more than 2 weeks ago."
-        )
+                ],
+                text=":face_with_monocle: Unable to find such request. Request might not have been submitted (you can submit RB request via this <https://form.asana.com/?k=ItwSQjHfy5lxDIcIMZFv7Q&d=149498577369773|form>) or maybe it was completed more than 2 weeks ago."
+            )
+
+            except SlackApiError as e:
+                logger.exception(f"failed to post message: {e}")
 
         else:
             blocks = []
 
             for name, status, assignee, dueDate, completeDate in tasks:
-                task = {
-                    "type": "rich_text",
-                    "elements": [
-                        {
-                            "type": "rich_text_quote",
-                            "elements": [
-                                {
-                                    "type": "text",
-                                    "text": name,
-                                    "style": {
-                                        "bold": True
+                if completeDate is None:
+                    task = {
+                        "type": "rich_text",
+                        "elements": [
+                            {
+                                "type": "rich_text_quote",
+                                "elements": [
+                                    {
+                                        "type": "text",
+                                        "text": name,
+                                        "style": {
+                                            "bold": True
+                                        }
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": "\n\tStatus: " + status
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": "\n\tAssignee: " + assignee
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": "\n\tDue date: " + dueDate
                                     }
-                                },
-                                {
-                                    "type": "text",
-                                    "text": "\n\tStatus: " + status
-                                },
-                                {
-                                    "type": "text",
-                                    "text": "\n\tAssignee: " + assignee
-                                },
-                                {
-                                    "type": "text",
-                                    "text": "\n\tDue date: " + dueDate
-                                },
-                                {
-                                    "type": "text",
-                                    "text": "\n\tCompleted date: " + completeDate
-                                }
-                            ]
-                        }
-                    ]
-                }
+                                ]
+                            }
+                        ]
+                    }
+
+                else:
+                    task = {
+                        "type": "rich_text",
+                        "elements": [
+                            {
+                                "type": "rich_text_quote",
+                                "elements": [
+                                    {
+                                        "type": "text",
+                                        "text": name,
+                                        "style": {
+                                            "bold": True
+                                        }
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": "\n\tStatus: " + status
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": "\n\tAssignee: " + assignee
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": "\n\tCompleted date: " + completeDate
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+
                 blocks.append(task)
 
-            client.chat_postMessage(
-                channel=channel_id,
-                thread_ts=ts,
-                blocks=blocks,
-                text="listing results"
-            )
+            try:
+                client.chat_postMessage(
+                    channel=channel_id,
+                    thread_ts=ts,
+                    blocks=blocks,
+                    text="listing results"
+                )
+
+            except e:
+                logger.exception(f"failed to post message: {e}")
 
     # if only "check" sent
     else:
-        client.chat_postMessage(
-            thread_ts=ts,
-            channel=channel_id,
-            blocks= [
-                {
-                    "type": "rich_text",
-                    "elements": [
-                        {
-                            "type": "rich_text_quote",
-                            "elements": [
-                                {
-                                    "type": "text",
-                                    "text": "Please include client name e.g. "
-                                },
-                                {
-                                    "type": "text",
-                                    "text": "check client_name",
-                                    "style": {
-                                        "italic": True,
-                                        "bold": True
+        try:
+            client.chat_postMessage(
+                thread_ts=ts,
+                channel=channel_id,
+                blocks= [
+                    {
+                        "type": "rich_text",
+                        "elements": [
+                            {
+                                "type": "rich_text_quote",
+                                "elements": [
+                                    {
+                                        "type": "text",
+                                        "text": "Please include client name e.g. "
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": "check client_name",
+                                        "style": {
+                                            "italic": True,
+                                            "bold": True
+                                        }
                                     }
-                                }
-                            ]
-                        }
-                    ]
-                }
-            ],
-            text="Please include client name e.g. check client_name"
-        )
+                                ]
+                            }
+                        ]
+                    }
+                ],
+                text="Please include client name e.g. check client_name"
+            )
+
+        except e:
+            logger.exception(f"failed to post message: {e}")
 
 
+@app.action("/Xhsi")
+def handle_some_action(ack, body, logger):
+    ack()
+    logger.info(body)
+
+
+# ------------------------------------------------------------
+# main app
 if __name__ == '__main__':
     # main()
     SocketModeHandler(
