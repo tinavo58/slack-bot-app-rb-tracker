@@ -31,13 +31,17 @@ def triggerAsanaInstance():
     return  asana.TasksApi(api_client)
 
 
-def retrieveTasks(tasks_api_instance, opt_fields=None):
+def retrieveTasks(tasks_api_instance, flag=False):
+    opt_fields = {
+        'opt_fields': "name,assignee.name,due_on,custom_fields.name,custom_fields.display_value,memberships.section.name,completed_at"
+    }
+
     opts = {
         'project': os.getenv('RB_TRACKER_P'),
         'completed_since': calculateDate(),
     }
 
-    if opt_fields is not None:
+    if flag:
         opts.update(opt_fields)
 
     return tasks_api_instance.get_tasks(opts)
@@ -118,34 +122,26 @@ def extractRequiredInfo(tasksList):
     output = {}
 
     for each in tasksList:
-        status = each['memberships'][0]['section']['name']
-        client_name, status, assignee, dueDate, _ = extractInfo(each)
-        taskString = f"{client_name} - Status: {status}, Assignee: {assignee}, Due date: {dueDate}"
+        section = each['memberships'][0]['section']['name']
+        client_name, status, assignee, dueDate, completeDate = extractInfo(each)
 
-        if status not in output:
-            output[status] = []
+        # check if `compelted` or `in progress`
+        if completeDate is None:
+            taskString = f"{client_name} - Status: {status}, Assignee: {assignee}, Due date: {dueDate}"
+        else:
+            taskString = f"{client_name} - Status: {status}, Assignee: {assignee}, Completed date: {completeDate}"
 
-        output[status].append(taskString)
+        if section not in output:
+            output[section] = []
+
+        output[section].append(taskString)
 
     return output
 
-
-#TODO to be deleted
-def main():
-    # search = "central"
+def getTaskForAppHome():
     tasks_api_instance = triggerAsanaInstance()
-    # res = searchTasks(search, tasks_api_instance)
-    # print(res)
-    # outputs = [extractInfo(retrieveSingeTask(tasks_api_instance, x)) for x in res]
-    # print(outputs)
-    # task = retrieveSingeTask(triggerAsanaInstance(), 1206109491240743)
-    # pprint(task)
-    opts = {
-        'opt_fields': "name,assignee.name,due_on,custom_fields.name,custom_fields.display_value,memberships.section.name,completed_at"
-    }
-    res = retrieveTasks(tasks_api_instance, opt_fields=opts)
-    output = extractRequiredInfo([x for x in res])
-    print(output)
+    res = retrieveTasks(tasks_api_instance, flag=True)
+    return extractRequiredInfo([x for x in res])
 
 
 # ------------------------------------------------------------
@@ -195,7 +191,7 @@ def check_RB_request(client, message, logger):
             )
 
             except SlackApiError as e:
-                logger.exception(f"failed to post message: {e}")
+                logger.error(f"failed to post message: {e}")
 
         else:
             blocks = []
@@ -274,7 +270,7 @@ def check_RB_request(client, message, logger):
                 )
 
             except e:
-                logger.exception(f"failed to post message: {e}")
+                logger.error(f"failed to post message: {e}")
 
     # if only "check" sent
     else:
@@ -310,7 +306,7 @@ def check_RB_request(client, message, logger):
             )
 
         except e:
-            logger.exception(f"failed to post message: {e}")
+            logger.error(f"failed to post message: {e}")
 
 
 @app.action("/Xhsi")
@@ -319,10 +315,77 @@ def handle_some_action(ack, body, logger):
     logger.info(body)
 
 
+def updateView():
+    blocks = [
+		{
+			"type": "header",
+			"text": {
+				"type": "plain_text",
+				"text": "Rule Build Requests Update",
+				"emoji": True
+			}
+		},
+		{
+			"type": "divider"
+		}
+	]
+
+    tasksDict = getTaskForAppHome()
+    for section in tasksDict:
+		# title block
+        titleBlock = {
+            "type": "rich_text",
+            "elements": [
+                {
+                    "type": "rich_text_section",
+                    "elements": [
+                        {
+                            "type": "text",
+                            "text": section,
+                            "style": {
+                                "bold": True
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+        blocks.append(titleBlock)
+
+		# tasks section
+        tasksBlock = {
+            "type": "section",
+            "text":  {
+                "type": "mrkdwn",
+                "text": '\n'.join(tasksDict[section])
+            }
+        }
+        blocks.append(tasksBlock)
+        blocks.append(dict(type='divider'))
+
+
+    view = {
+        "type": "home",
+        "blocks": blocks
+    }
+
+    return view
+
+
+@app.event("app_home_opened")
+def update_home_tab(client, event, logger):
+    try:
+        client.views_publish(
+            user_id=event['user'],
+            view=updateView()
+        )
+    except SlackApiError as e:
+        logger.error(f"failed to update Home tab: {e}")
+
+
 # ------------------------------------------------------------
 # main app
 if __name__ == '__main__':
-    # main()
     SocketModeHandler(
         app,
         os.environ['SLACK_APP_TOKEN'],
