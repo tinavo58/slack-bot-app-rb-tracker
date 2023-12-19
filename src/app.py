@@ -70,6 +70,7 @@ def getDisplayValue(field, fieldsList):
 
 
 def convertDateTime(dateTimeString, flag=False):
+    """convert datetime string to usual format dd/mm/yyyy"""
     if flag:
         dateTimeDetails = datetime.strptime(dateTimeString, '%Y-%m-%d')
     else:
@@ -79,6 +80,11 @@ def convertDateTime(dateTimeString, flag=False):
 
 
 def extractInfo(item):
+    """return `tuple` of required info
+
+    Args:
+        item: task returned from Asana"""
+
     # client's name
     clientName = item['name']
 
@@ -154,9 +160,8 @@ def check_RB_request(client, message, logger):
                             {
                                 "type": "section",
                                 "text": {
-                                    "type": "plain_text",
+                                    "type": "mrkdwn",
                                     "text": ":face_with_monocle: Unable to find such request. Request might not have been submitted or maybe it was completed more than 2 weeks ago.",
-                                    "emoji": True
                                 }
                             },
                             {
@@ -169,13 +174,13 @@ def check_RB_request(client, message, logger):
                                             "text": "Submit new request",
                                             "emoji": True
                                         },
-                                        "value": "click_me_123",
                                         "action_id": "/Xhsi",
                                         "url": "https://form.asana.com/?k=ItwSQjHfy5lxDIcIMZFv7Q&d=149498577369773t"
                                     }
                                 ]
                             }
-                        ]
+                        ],
+                        "fallback": "Unable to find such request. Request might not have been submitted or maybe it was completed more than 2 weeks ago."
                     }
                 ]
             )
@@ -184,79 +189,46 @@ def check_RB_request(client, message, logger):
                 logger.error(f"failed to post message: {e}")
 
         else:
-            blocks = []
+            attachments = []
 
             for name, status, assignee, dueDate, completeDate in tasks:
                 if completeDate is None:
                     task = {
-                        "type": "rich_text",
-                        "elements": [
+                        "color": "#b892fe",
+                        "blocks": [
                             {
-                                "type": "rich_text_quote",
-                                "elements": [
-                                    {
-                                        "type": "text",
-                                        "text": name,
-                                        "style": {
-                                            "bold": True
-                                        }
-                                    },
-                                    {
-                                        "type": "text",
-                                        "text": "\n\tStatus: " + status
-                                    },
-                                    {
-                                        "type": "text",
-                                        "text": "\n\tAssignee: " + assignee
-                                    },
-                                    {
-                                        "type": "text",
-                                        "text": "\n\tDue date: " + dueDate
-                                    }
-                                ]
+                                "type": "section",
+                                "text": {
+                                    "type": "mrkdwn",
+                                    "text": "*" + name + "*" + "\n\tStatus: *" + status + "*\n\tAssignee: *" + assignee + "*\n\tDue date: *" + dueDate + "*"
+                                }
                             }
-                        ]
+                        ],
+                        "fallback": name + ", Status: " + status + ", Assignee: " + assignee + ", Due Date: " + dueDate
                     }
 
                 else:
                     task = {
-                        "type": "rich_text",
-                        "elements": [
+                        "color": "#b892fe",
+                        "blocks": [
                             {
-                                "type": "rich_text_quote",
-                                "elements": [
-                                    {
-                                        "type": "text",
-                                        "text": name,
-                                        "style": {
-                                            "bold": True
-                                        }
-                                    },
-                                    {
-                                        "type": "text",
-                                        "text": "\n\tStatus: " + status
-                                    },
-                                    {
-                                        "type": "text",
-                                        "text": "\n\tAssignee: " + assignee
-                                    },
-                                    {
-                                        "type": "text",
-                                        "text": "\n\tCompleted date: " + completeDate
-                                    }
-                                ]
+                                "type": "section",
+                                "text": {
+                                    "type": "mrkdwn",
+                                    "text": "*" + name + "*" + "\n\tStatus: *" + status + "*\n\tAssignee: *" + assignee + "*\n\tCompleted date: *" + completeDate + "*"
+                                }
                             }
-                        ]
+                        ],
+                        "fallback": name + ", Status: " + status + ", Assignee: " + assignee + ", Completed Date: " + completeDate
                     }
 
-                blocks.append(task)
+                attachments.append(task)
 
             try:
                 client.chat_postMessage(
                     channel=channel_id,
                     thread_ts=ts,
-                    blocks=blocks,
-                    text="listing results"
+                    attachments=attachments,
                 )
 
             except SlackApiError as e:
@@ -273,28 +245,14 @@ def check_RB_request(client, message, logger):
                         "color": "#b892fe",
                         "blocks": [
                             {
-                                "type": "rich_text",
-                                "elements": [
-                                    {
-                                        "type": "rich_text_section",
-                                        "elements": [
-                                            {
-                                                "type": "text",
-                                                "text": "Please include client name e.g. "
-                                            },
-                                            {
-                                                "type": "text",
-                                                "text": "check client_name",
-                                                "style": {
-                                                    "italic": True,
-                                                    "bold": True
-                                                }
-                                            }
-                                        ]
-                                    }
-                                ]
+                                "type": "section",
+                                "text": {
+                                    "type": "mrkdwn",
+                                    "text": "Please include client name e.g. check *_client_name_*"
+                                }
                             }
-                        ]
+                        ],
+                        "fallback": "Please include client name e.g check client_name"
                     }
                 ]
             )
@@ -320,6 +278,21 @@ def updateView():
 			}
 		},
         {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "Submit new request",
+                        "emoji": True
+                    },
+                    "action_id": "/Xhsi",
+                    "url": "https://form.asana.com/?k=ItwSQjHfy5lxDIcIMZFv7Q&d=149498577369773t"
+                }
+            ]
+        },
+        {
             "type": "divider"
         }
 	]
@@ -328,21 +301,12 @@ def updateView():
     for section in tasksDict:
 		# title block
         titleBlock = {
-            "type": "rich_text",
-            "elements": [
-                {
-                    "type": "rich_text_section",
-                    "elements": [
-                        {
-                            "type": "text",
-                            "text": section.upper(),
-                            "style": {
-                                "bold": True
-                            }
-                        }
-                    ]
-                },
-            ]
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "\n:eh-p: *" + section + "*"
+
+            }
         }
         blocks.append(titleBlock)
         blocks.append(
@@ -355,58 +319,20 @@ def updateView():
         for name, status, assignee, dueDate, completeDate in tasksDict[section]:
             if completeDate is None:
                 task = {
-                    "type": "rich_text",
-                    "elements": [
-                        {
-                            "type": "rich_text_quote",
-                            "elements": [
-                                {
-                                    "type": "text",
-                                    "text": "\n" + name,
-                                    "style": {
-                                        "bold": True,
-                                        "italic": True
-                                    }
-                                },
-                                {
-                                    "type": "text",
-                                    "text": " - Status: " + status
-                                },
-                                {
-                                    "type": "text",
-                                    "text": "\nAssignee: " + assignee + ", Due date: " + dueDate
-                                }
-                            ]
-                        }
-                    ]
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "\n>*_" + name + "_*" + " - Status: *" + status + "*\n>Assignee: *" + assignee + "*, Due date: *" + dueDate + "*"
+                    }
                 }
 
             else:
                 task = {
-                    "type": "rich_text",
-                    "elements": [
-                        {
-                            "type": "rich_text_quote",
-                            "elements": [
-                                {
-                                    "type": "text",
-                                    "text": "\n" + name,
-                                    "style": {
-                                        "bold": True,
-                                        "italic": True
-                                    }
-                                },
-                                {
-                                    "type": "text",
-                                    "text": " - Status: " + status
-                                },
-                                {
-                                    "type": "text",
-                                    "text": "\nAssignee: " + assignee + ", Completed date: " + completeDate
-                                }
-                            ]
-                        }
-                    ]
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "\n>*_" + name + "_*" + " - Status: *" + status + "*\n>Assignee: *" + assignee + "*, Completed date: *" + completeDate + "*"
+                    }
                 }
 
             blocks.append(task)
@@ -434,6 +360,11 @@ def update_home_tab(client, event, logger):
         )
     except SlackApiError as e:
         logger.error(f"failed to update Home tab: {e}")
+
+
+@app.event("message")
+def handle_message_events(body, logger):
+    logger.info(body)
 
 
 # ------------------------------------------------------------
