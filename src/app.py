@@ -139,7 +139,7 @@ def getTaskForAppHome() -> dict:
 
 # ------------------------------------------------------------
 # slack
-@app.message(re.compile(r'check(.*)'))
+@app.message(re.compile(r'^check(.*)', flags=re.I))
 def check_RB_request(client, message, logger):
     message_text, ts, channel_id = message['text'], message['ts'], message['channel']
 
@@ -175,7 +175,7 @@ def check_RB_request(client, message, logger):
                                             "emoji": True
                                         },
                                         "action_id": "/Xhsi",
-                                        "url": "https://form.asana.com/?k=ItwSQjHfy5lxDIcIMZFv7Q&d=149498577369773t"
+                                        "url": "https://form.asana.com/?k=nqfe1L-M0BKKM3IWse_F9w&d=149498577369773"
                                     }
                                 ]
                             }
@@ -200,7 +200,7 @@ def check_RB_request(client, message, logger):
                                 "type": "section",
                                 "text": {
                                     "type": "mrkdwn",
-                                    "text": "*" + name + "*" + "\n\tStatus: *" + status + "*\n\tAssignee: *" + assignee + "*\n\tDue date: *" + dueDate + "*"
+                                    "text": "*" + name + "*\n\tStatus: *" + status + "*\n\tAssignee: *" + assignee + "*\n\tDue date: *" + dueDate + "*"
                                 }
                             }
                         ],
@@ -215,7 +215,7 @@ def check_RB_request(client, message, logger):
                                 "type": "section",
                                 "text": {
                                     "type": "mrkdwn",
-                                    "text": "*" + name + "*" + "\n\tStatus: *" + status + "*\n\tAssignee: *" + assignee + "*\n\tCompleted date: *" + completeDate + "*"
+                                    "text": "*" + name + "*\n\tStatus: *" + status + "*\n\tAssignee: *" + assignee + "*\n\tCompleted date: *" + completeDate + "*"
                                 }
                             }
                         ],
@@ -288,7 +288,7 @@ def updateView():
                         "emoji": True
                     },
                     "action_id": "/Xhsi",
-                    "url": "https://form.asana.com/?k=ItwSQjHfy5lxDIcIMZFv7Q&d=149498577369773t"
+                    "url": "https://form.asana.com/?k=nqfe1L-M0BKKM3IWse_F9w&d=149498577369773"
                 }
             ]
         },
@@ -322,7 +322,7 @@ def updateView():
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": "\n>*_" + name + "_*" + " - Status: *" + status + "*\n>Assignee: *" + assignee + "*, Due date: *" + dueDate + "*"
+                        "text": "\n*_" + name + "_* - " + status + "\n>Assignee: *" + assignee + "*\n>Due date: *" + dueDate + "*"
                     }
                 }
 
@@ -331,7 +331,7 @@ def updateView():
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": "\n>*_" + name + "_*" + " - Status: *" + status + "*\n>Assignee: *" + assignee + "*, Completed date: *" + completeDate + "*"
+                        "text": "\n*_" + name + "_* - " + status + "\n>Assignee: *" + assignee + "*\n>Completed date: *" + completeDate + "*"
                     }
                 }
 
