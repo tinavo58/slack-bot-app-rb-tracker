@@ -28,10 +28,11 @@ def triggerAsanaInstance():
     configuration.access_token = os.getenv('ASANA_PAT')
     api_client = asana.ApiClient(configuration)
 
-    return  asana.TasksApi(api_client)
+    return asana.TasksApi(api_client)
 
 
 def retrieveTasks(tasks_api_instance, flag=False):
+    """return tasks generator"""
     opt_fields = {
         'opt_fields': "name,assignee.name,due_on,custom_fields.name,custom_fields.display_value,memberships.section.name,completed_at"
     }
@@ -52,12 +53,9 @@ def searchTasks(searchTask: str, tasks_api_instance):
     return list of gids if any"""
     tasks = retrieveTasks(tasks_api_instance, flag=True)
 
-    output = []
     for task in tasks:
         if searchTask.lower() in task['name'].lower():
-            output.append(extractInfo(task))
-
-    return output
+            yield extractInfo(task)
 
 
 def getDisplayValue(field, fieldsList):
@@ -109,7 +107,7 @@ def extractInfo(item):
 
 
 def fullSearch(searchString: str):
-    res = searchTasks(searchString, triggerAsanaInstance())
+    res = [*searchTasks(searchString, triggerAsanaInstance())]
     if len(res) > 0:
         return res
 
