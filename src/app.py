@@ -103,7 +103,13 @@ def extractInfo(item):
     completeDate = item['completed_at']
     if completeDate is not None: completeDate = convertDateTime(item['completed_at'])
 
-    return clientName, status, assignee, dueDate, completeDate
+    # requester
+    requester = getDisplayValue('Requester', item['custom_fields'])
+
+    # type of request
+    typeOfRequest = getDisplayValue('Type of Request', item['custom_fields'])
+
+    return clientName, status, assignee, dueDate, completeDate, requester, typeOfRequest
 
 
 def fullSearch(searchString: str):
@@ -189,7 +195,7 @@ def check_RB_request(client, message, logger):
         else:
             attachments = []
 
-            for name, status, assignee, dueDate, completeDate in tasks:
+            for name, status, assignee, dueDate, completeDate, requester, typeOfRequest in tasks:
                 if completeDate is None:
                     task = {
                         "color": "#b892fe",
@@ -198,7 +204,7 @@ def check_RB_request(client, message, logger):
                                 "type": "section",
                                 "text": {
                                     "type": "mrkdwn",
-                                    "text": "*" + name + "*\n\tStatus: *" + status + "*\n\tAssignee: *" + assignee + "*\n\tDue date: *" + dueDate + "*"
+                                    "text": typeOfRequest + " | *" + name + "*\n\tRequester: *" + requester + "*\n\tStatus: *" + status + "*\n\tAssignee: *" + assignee + "*\n\tDue date: *" + dueDate + "*"
                                 }
                             }
                         ],
@@ -213,7 +219,7 @@ def check_RB_request(client, message, logger):
                                 "type": "section",
                                 "text": {
                                     "type": "mrkdwn",
-                                    "text": "*" + name + "*\n\tStatus: *" + status + "*\n\tAssignee: *" + assignee + "*\n\tCompleted date: *" + completeDate + "*"
+                                    "text": typeOfRequest + " | *" + name + "*\n\tRequester: *" + requester + "*\n\tStatus: *" + status + "*\n\tAssignee: *" + assignee + "*\n\tCompleted date: *" + completeDate + "*"
                                 }
                             }
                         ],
@@ -314,13 +320,13 @@ def updateView():
         )
 
 		# tasks section
-        for name, status, assignee, dueDate, completeDate in tasksDict[section]:
+        for name, status, assignee, dueDate, completeDate, requester, typeOfRequest in tasksDict[section]:
             if completeDate is None:
                 task = {
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": "\n*_" + name + "_* - " + status + "\n>Assignee: *" + assignee + "*\n>Due date: *" + dueDate + "*"
+                        "text": "\n" + typeOfRequest + " | *_" + name + "_* - " + status + "\n>Requester: *" + requester + "*\n>Assignee: *" + assignee + "*\n>Due date: *" + dueDate + "*"
                     }
                 }
 
@@ -329,7 +335,7 @@ def updateView():
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": "\n*_" + name + "_* - " + status + "\n>Assignee: *" + assignee + "*\n>Completed date: *" + completeDate + "*"
+                        "text": "\n" + typeOfRequest + " | *_" + name + "_* - " + status + "\n>Requester: *" + requester + "*\n>Assignee: *" + assignee + "*\n>Completed date: *" + completeDate + "*"
                     }
                 }
 
