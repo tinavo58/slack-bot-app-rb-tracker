@@ -179,7 +179,7 @@ def check_RB_request(client, message, logger):
                                             "emoji": True
                                         },
                                         "action_id": "/Xhsi",
-                                        "url": "https://form.asana.com/?k=nqfe1L-M0BKKM3IWse_F9w&d=149498577369773"
+                                        "url": "link to the form"
                                     }
                                 ]
                             }
@@ -292,7 +292,7 @@ def updateView():
                         "emoji": True
                     },
                     "action_id": "/Xhsi",
-                    "url": "https://form.asana.com/?k=nqfe1L-M0BKKM3IWse_F9w&d=149498577369773"
+                    "url": "link to the form"
                 }
             ]
         },
